@@ -1,0 +1,18 @@
+{
+  "name": "nec_pickems",
+  "version": "1.0.0",
+  "description": "A Valorant league pickems bot for Nerve Esports Circuit.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "sqlite3": "^5.1.7"
+  }
+}
