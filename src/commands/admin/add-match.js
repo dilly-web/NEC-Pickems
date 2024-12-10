@@ -40,6 +40,12 @@ module.exports = {
             required: true,
             autocomplete: true, // Enable AutoComplete
         },
+        {
+            name: 'week',
+            type: 4, // INTEGER
+            description: 'Specify the week number for this match (default: 0).',
+            required: false, // Optional
+        },
     ],
     async execute(interaction, db) {
         const invokingUserId = interaction.user.id;
@@ -59,7 +65,15 @@ module.exports = {
         const dateInput = interaction.options.getString('date');
         const timeInput = interaction.options.getString('time');
         const stage = interaction.options.getString('stage');
-
+        const week = interaction.options.getInteger('week') ?? 0;
+        console.log(`Week received from input: ${week}`);
+        // Validate week input
+        if (week < 0 || !Number.isInteger(week)) {
+            return interaction.reply({
+                content: 'Invalid week number. Please provide a non-negative integer.',
+                ephemeral: true,
+            });
+        }        
         // Parse and validate date and time
         let matchDate;
         try {
@@ -86,8 +100,8 @@ module.exports = {
 
         // Insert match into the database
         db.run(
-            `INSERT INTO matches (team_a, team_b, start_time, stage) VALUES (?, ?, ?, ?)`,
-            [team1, team2, matchDate.toISOString(), stage],
+            `INSERT INTO matches (team_a, team_b, start_time, stage, week) VALUES (?, ?, ?, ?, ?)`,
+            [team1, team2, matchDate.toISOString(), stage, week],
             function (err) {
                 if (err) {
                     console.error(err);
@@ -98,7 +112,7 @@ module.exports = {
                 }
 
                 interaction.reply({
-                    content: `Match added successfully: **${team1}** vs **${team2}** on **${format(
+                    content: `Match added successfully for **Week ${week}**: **${team1}** vs **${team2}** on **${format(
                         matchDate,
                         'yyyy-MM-dd hh:mm a'
                     )}** (${stage}).`,
