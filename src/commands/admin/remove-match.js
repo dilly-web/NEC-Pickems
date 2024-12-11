@@ -70,7 +70,7 @@ module.exports = {
     async autocomplete(interaction, db) {
         const focusedValue = interaction.options.getFocused(); // Get current user input
 
-        db.all('SELECT id, team_a, team_b, start_time FROM matches', [], (err, rows) => {
+        db.all('SELECT id, team_a, team_b, start_time, week FROM matches', [], (err, rows) => {
             if (err) {
                 console.error(err);
                 return interaction.respond([]);

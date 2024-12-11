@@ -42,9 +42,10 @@ module.exports = {
         },
         {
             name: 'week',
-            type: 4, // INTEGER
-            description: 'Specify the week number for this match (default: 0).',
-            required: false, // Optional
+            type: 3, // STRING (changed from INTEGER to allow descriptive values like "None")
+            description: 'Specify the week number for this match (None, #1, ..., #7).',
+            required: true,
+            autocomplete: true, // Enable AutoComplete
         },
     ],
     async execute(interaction, db) {
@@ -65,15 +66,11 @@ module.exports = {
         const dateInput = interaction.options.getString('date');
         const timeInput = interaction.options.getString('time');
         const stage = interaction.options.getString('stage');
-        const week = interaction.options.getInteger('week') ?? 0;
-        console.log(`Week received from input: ${week}`);
-        // Validate week input
-        if (week < 0 || !Number.isInteger(week)) {
-            return interaction.reply({
-                content: 'Invalid week number. Please provide a non-negative integer.',
-                ephemeral: true,
-            });
-        }        
+        const weekInput = interaction.options.getString('week') ?? 'None';
+
+        // Convert week input for database storage
+        const week = weekInput === 'None' ? 0 : parseInt(weekInput.replace('#', ''), 10);
+
         // Parse and validate date and time
         let matchDate;
         try {
@@ -112,9 +109,9 @@ module.exports = {
                 }
 
                 interaction.reply({
-                    content: `Match added successfully for **Week ${week}**: **${team1}** vs **${team2}** on **${format(
+                    content: `Match added successfully for **Week ${weekInput}**: **${team1}** vs **${team2}** on **${format(
                         matchDate,
-                        'yyyy-MM-dd hh:mm a'
+                        'MMMM d, h:mm a'
                     )}** (${stage}).`,
                     ephemeral: true,
                 });
@@ -122,74 +119,121 @@ module.exports = {
         );
     },
     async autocomplete(interaction, db) {
-        const focusedOption = interaction.options.getFocused(true); // Get focused option
+        const focusedOption = interaction.options.getFocused(true); // Get the focused option
+        const userInput = focusedOption.value.toLowerCase(); // Normalize user input for comparison
     
-        if (focusedOption.name === 'team1' || focusedOption.name === 'team2') {
-            // Fetch all teams from the database
-            db.all('SELECT name FROM teams', [], (err, rows) => {
-                if (err) {
-                    console.error(err);
-                    return interaction.respond([]);
-                }
+        switch (focusedOption.name) {
+            case 'week':
+                // Suggest week options
+                const weeks = [
+                    { name: 'None', value: 'None' },
+                    { name: '#1', value: '#1' },
+                    { name: '#2', value: '#2' },
+                    { name: '#3', value: '#3' },
+                    { name: '#4', value: '#4' },
+                    { name: '#5', value: '#5' },
+                    { name: '#6', value: '#6' },
+                    { name: '#7', value: '#7' },
+                ];
     
-                const choices = rows.map((row) => ({ name: row.name, value: row.name }));
+                // Filter week options dynamically based on user input
+                const filteredWeeks = weeks.filter((week) =>
+                    week.name.toLowerCase().includes(userInput)
+                );
+                return interaction.respond(filteredWeeks.slice(0, 25)); // Respond with up to 25 options
     
-                if (focusedOption.name === 'team2') {
-                    // Exclude the team selected as team1
-                    const selectedTeam1 = interaction.options.getString('team1');
-                    if (selectedTeam1) {
-                        const filteredChoices = choices.filter((choice) => choice.value !== selectedTeam1);
-                        interaction.respond(filteredChoices.slice(0, 25)); // Respond with filtered choices
-                        return;
+            case 'team1':
+            case 'team2': {
+                // Fetch teams from the database
+                db.all('SELECT name FROM teams', [], (err, rows) => {
+                    if (err) {
+                        console.error(err);
+                        return interaction.respond([]);
+                    }
+    
+                    let choices = rows.map((row) => ({ name: row.name, value: row.name }));
+    
+                    if (focusedOption.name === 'team2') {
+                        // Exclude team1 from team2 options
+                        const selectedTeam1 = interaction.options.getString('team1');
+                        if (selectedTeam1) {
+                            choices = choices.filter(
+                                (choice) => choice.value.toLowerCase() !== selectedTeam1.toLowerCase()
+                            );
+                        }
+                    }
+    
+                    // Filter based on user input for dynamic narrowing
+                    const filteredChoices = choices.filter((choice) =>
+                        choice.name.toLowerCase().includes(userInput)
+                    );
+    
+                    return interaction.respond(filteredChoices.slice(0, 25)); // Respond with filtered options
+                });
+                break;
+            }
+    
+            case 'date': {
+                // Suggest dates (Today, Tomorrow, Next 10 days)
+                const dates = Array.from({ length: 10 }, (_, i) => {
+                    const date = addDays(new Date(), i);
+                    return {
+                        name: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : format(date, 'yyyy-MM-dd'),
+                        value: format(date, 'yyyy-MM-dd'),
+                    };
+                });
+    
+                // Filter dates dynamically
+                const filteredDates = dates.filter((date) =>
+                    date.name.toLowerCase().includes(userInput)
+                );
+    
+                return interaction.respond(filteredDates.slice(0, 25)); // Respond with up to 25 options
+            }
+    
+            case 'time': {
+                // Suggest times (4 PM to 11 PM in 15-minute intervals, 12-hour format)
+                const startHour = 16; // 4 PM (24-hour clock)
+                const endHour = 24; // 12 AM (24-hour clock)
+                const intervalMinutes = 15;
+    
+                const times = [];
+                for (let hour = startHour; hour <= endHour; hour++) {
+                    for (let minutes = 0; minutes < 60; minutes += intervalMinutes) {
+                        const hour12 = hour > 12 ? hour - 12 : hour; // Convert to 12-hour format
+                        const period = hour >= 12 ? 'PM' : 'AM'; // Determine AM/PM
+                        const time = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+                        times.push({ name: time, value: time });
                     }
                 }
     
-                // Respond with unfiltered choices if no filtering is needed
-                interaction.respond(choices.slice(0, 25));
-            });
-        } else if (focusedOption.name === 'date') {
-            // Suggest dates (Today, Tomorrow, Next 10 days)
-            const dates = Array.from({ length: 10 }, (_, i) => {
-                const date = addDays(new Date(), i);
-                return {
-                    name: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : format(date, 'yyyy-MM-dd'),
-                    value: format(date, 'yyyy-MM-dd'),
-                };
-            });
-            interaction.respond(dates);
-        } else if (focusedOption.name === 'time') {
-            // Suggest times (4 PM to 11 PM in 15-minute intervals, 12-hour format)
-            const startHour = 16; // 4 PM (24-hour clock)
-            const endHour = 24; // 12 AM (24-hour clock)
-            const intervalMinutes = 15; // Interval in minutes
+                // Filter times dynamically
+                const filteredTimes = times.filter((time) =>
+                    time.name.toLowerCase().includes(userInput)
+                );
     
-            const times = [];
-            for (let hour = startHour; hour <= endHour; hour++) {
-                for (let minutes = 0; minutes < 60; minutes += intervalMinutes) {
-                    const hour12 = hour > 12 ? hour - 12 : hour; // Convert to 12-hour format
-                    const period = hour >= 12 ? 'PM' : 'AM'; // Determine AM/PM
-                    const time = `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-                    times.push({ name: time, value: time });
-                }
+                return interaction.respond(filteredTimes.slice(0, 25)); // Respond with up to 25 options
             }
     
-            const filtered = times.filter((time) =>
-                time.name.toLowerCase().includes(focusedOption.value.toLowerCase())
-            );
+            case 'stage': {
+                // Suggest stages
+                const stages = [
+                    { name: 'Regular Season', value: 'Regular Season' },
+                    { name: 'Playoffs', value: 'Playoffs' },
+                    { name: 'Semifinals', value: 'Semifinals' },
+                    { name: 'Finals', value: 'Finals' },
+                ];
     
-            interaction.respond(filtered.slice(0, 25)); // Respond with up to 25 options
-        } else if (focusedOption.name === 'stage') {
-            // Suggest stages
-            const stages = [
-                { name: 'Regular Season', value: 'Regular Season' },
-                { name: 'Playoffs', value: 'Playoffs' },
-                { name: 'Semifinals', value: 'Semifinals' },
-                { name: 'Finals', value: 'Finals' },
-            ];
-            const filtered = stages.filter((stage) =>
-                stage.name.toLowerCase().includes(focusedOption.value.toLowerCase())
-            );
-            interaction.respond(filtered.slice(0, 25)); // Respond with up to 25 options
+                // Filter stages dynamically
+                const filteredStages = stages.filter((stage) =>
+                    stage.name.toLowerCase().includes(userInput)
+                );
+    
+                return interaction.respond(filteredStages.slice(0, 25)); // Respond with up to 25 options
+            }
+    
+            default:
+                return interaction.respond([]); // Default to empty response for unrecognized options
         }
-    }
+    },
 };
