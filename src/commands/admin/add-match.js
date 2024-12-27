@@ -42,8 +42,8 @@ module.exports = {
         },
         {
             name: 'week',
-            type: 3, // STRING (changed from INTEGER to allow descriptive values like "None")
-            description: 'Specify the week number for this match (None, #1, ..., #7).',
+            type: 3, // String that gets converted to integer for database
+            description: 'Specify the week number for this match (Playoffs, #1, ..., #7).',
             required: true,
             autocomplete: true, // Enable AutoComplete
         },
@@ -66,10 +66,10 @@ module.exports = {
         const dateInput = interaction.options.getString('date');
         const timeInput = interaction.options.getString('time');
         const stage = interaction.options.getString('stage');
-        const weekInput = interaction.options.getString('week') ?? 'None';
+        const weekInput = interaction.options.getString('week') ?? 'Playoffs';
 
         // Convert week input for database storage
-        const week = weekInput === 'None' ? 0 : parseInt(weekInput.replace('#', ''), 10);
+        const week = weekInput === 'Playoffs' ? 0 : parseInt(weekInput.replace('#', ''), 10);
 
         // Parse and validate date and time
         let matchDate;
@@ -126,7 +126,7 @@ module.exports = {
             case 'week':
                 // Suggest week options
                 const weeks = [
-                    { name: 'None', value: 'None' },
+                    { name: 'Playoffs', value: 'Playoffs' },
                     { name: '#1', value: '#1' },
                     { name: '#2', value: '#2' },
                     { name: '#3', value: '#3' },

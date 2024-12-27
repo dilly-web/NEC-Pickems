@@ -1,0 +1,37 @@
+{
+  "week": 7,
+  "matches": [
+    {
+      "team_a": "TeamGOGO [5]",
+      "team_b": "Labyrinth Chaos [3]",
+      "result": "0-0",
+      "maps": [],
+      "date": "2024-01-13T18:15:00-05:00",
+      "map_picks": "MAP PICKS & BANS"
+    },
+    {
+      "team_a": "Nerve Esports Onyx [4]",
+      "team_b": "NoPrac [2]",
+      "result": "0-0",
+      "maps": [],
+      "date": "2024-01-13T18:15:00-05:00",
+      "map_picks": "MAP PICKS & BANS"
+    },
+    {
+      "team_a": "Cosmic Coven Hoku [7]",
+      "team_b": "LUNO [8]",
+      "result": "0-0",
+      "maps": [],
+      "date": "2024-01-13T18:15:00-05:00",
+      "map_picks": "MAP PICKS & BANS"
+    },
+    {
+      "team_a": "Nerve Esports Opal [6]",
+      "team_b": "Empire Redux [1]",
+      "result": "0-0",
+      "maps": [],
+      "date": "2024-01-13T18:15:00-05:00",
+      "map_picks": "MAP PICKS & BANS"
+    }
+  ]
+}

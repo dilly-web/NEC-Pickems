@@ -15,7 +15,7 @@ const db = new sqlite3.Database('./data/pickems.db', (err) => {
             if (err) {
                 console.error("Failed to enable foreign key constraints:", err.message);
             } else {
-                console.log("Foreign key constraints are enabled.");
+                // console.log("Foreign key constraints are enabled.");
             }
         });
     }

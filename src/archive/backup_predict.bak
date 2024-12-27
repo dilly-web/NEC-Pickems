@@ -1,0 +1,159 @@
+const { EmbedBuilder } = require('discord.js');
+
+module.exports = {
+    name: 'predict',
+    description: 'Make a prediction for a match and view the weekly schedule.',
+    options: [
+        {
+            name: 'match',
+            type: 3, // STRING
+            description: 'Select the match to predict.',
+            required: true,
+            autocomplete: true,
+        },
+        {
+            name: 'winner',
+            type: 3, // STRING
+            description: 'Choose the predicted winner.',
+            required: true,
+            autocomplete: true,
+        },
+    ],
+    async execute(interaction, db) {
+        const userId = interaction.user.id;
+        const matchId = interaction.options.getString('match');
+        const predictedWinner = interaction.options.getString('winner');
+        const timestamp = new Date().toISOString();
+    
+        try {
+            // Insert or update the prediction
+            db.run(
+                'INSERT INTO predictions (user_id, match_id, predicted_winner, timestamp) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, match_id) DO UPDATE SET predicted_winner = ?, timestamp = ?',
+                [userId, matchId, predictedWinner, timestamp, predictedWinner, timestamp],
+                (err) => {
+                    if (err) {
+                        console.error('Error saving prediction:', err);
+                        return interaction.reply({
+                            content: 'An error occurred while saving your prediction.',
+                            ephemeral: true,
+                        });
+                    }
+                }
+            );
+    
+            // Fetch the week of the updated match
+            const updatedMatchWeek = await new Promise((resolve, reject) => {
+                db.get(
+                    'SELECT week FROM matches WHERE id = ?',
+                    [matchId],
+                    (err, row) => {
+                        if (err) return reject(err);
+                        if (!row) return reject(new Error('Match not found.'));
+                        resolve(row.week);
+                    }
+                );
+            });
+    
+            // Fetch all matches and predictions for that week
+            const matches = await new Promise((resolve, reject) => {
+                db.all(
+                    `SELECT 
+                        matches.id AS match_id, 
+                        team_a, 
+                        team_b, 
+                        start_time, 
+                        predictions.predicted_winner 
+                     FROM matches 
+                     LEFT JOIN predictions 
+                     ON matches.id = predictions.match_id 
+                     AND predictions.user_id = ? 
+                     WHERE matches.week = ? 
+                     ORDER BY matches.start_time`,
+                    [userId, updatedMatchWeek],
+                    (err, rows) => {
+                        if (err) return reject(err);
+                        resolve(rows);
+                    }
+                );
+            });
+    
+            if (!matches.length) {
+                return interaction.reply({
+                    content: `No matches found for week ${updatedMatchWeek}.`,
+                    ephemeral: true,
+                });
+            }
+    
+            // Create an embed for the weekly schedule
+            const embed = new EmbedBuilder()
+                .setTitle(`Week ${updatedMatchWeek} Schedule`)
+                .setDescription('Here is your schedule and predictions for this week:')
+                .setColor('#5865F2');
+    
+            matches.forEach((match) => {
+                const matchTime = new Date(match.start_time).toLocaleString();
+                const isTeamAPredicted = match.predicted_winner === match.team_a;
+                const isTeamBPredicted = match.predicted_winner === match.team_b;
+    
+                embed.addFields({
+                    name: `${match.team_a} ${isTeamAPredicted ? '✅' : '❌'} vs ${match.team_b} ${isTeamBPredicted ? '✅' : '❌'}`,
+                    value: `Time: ${matchTime}`,
+                    inline: false,
+                });
+            });
+    
+            // Reply with the updated embed
+            interaction.reply({
+                content: `Your prediction for **${predictedWinner}** has been saved! Here is the weekly schedule:`,
+                embeds: [embed],
+                ephemeral: true,
+            });
+        } catch (error) {
+            console.error('Error:', error);
+            interaction.reply({
+                content: 'An unexpected error occurred. Please try again later.',
+                ephemeral: true,
+            });
+        }
+    },
+    async autocomplete(interaction, db) {
+        const focusedOption = interaction.options.getFocused(true);
+
+        if (focusedOption.name === 'match') {
+            db.all('SELECT id, team_a, team_b, start_time FROM matches', [], (err, rows) => {
+                if (err) {
+                    console.error(err);
+                    return interaction.respond([]);
+                }
+
+                const choices = rows.map((row) => ({
+                    name: `${row.team_a} vs ${row.team_b} on ${new Date(row.start_time).toLocaleString()}`,
+                    value: row.id.toString(),
+                }));
+
+                interaction.respond(choices.slice(0, 25));
+            });
+        } else if (focusedOption.name === 'winner') {
+            const matchId = interaction.options.getString('match');
+            if (!matchId) return interaction.respond([]);
+
+            db.get('SELECT team_a, team_b FROM matches WHERE id = ?', [matchId], (err, row) => {
+                if (err || !row) {
+                    console.error(err || 'Match not found');
+                    return interaction.respond([]);
+                }
+
+                const choices = [
+                    { name: row.team_a, value: row.team_a },
+                    { name: row.team_b, value: row.team_b },
+                ];
+
+                const filtered = choices.filter((choice) =>
+                    choice.name.toLowerCase().includes(focusedOption.value.toLowerCase())
+                );
+
+                interaction.respond(filtered.slice(0, 25));
+            });
+        }
+    },
+};

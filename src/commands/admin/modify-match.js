@@ -131,7 +131,7 @@ async execute(interaction, db) {
     }
 
     // Convert week input for database
-    const week = weekInput ? (weekInput === 'None' ? 0 : parseInt(weekInput.replace('#', ''), 10)) : null;
+    const week = weekInput ? (weekInput === 'Playoffs' ? 0 : parseInt(weekInput.replace('#', ''), 10)) : null;
 
     // Build the update query dynamically
     const updates = [];
@@ -184,7 +184,7 @@ async execute(interaction, db) {
                 // Build a user-friendly response with the updated match details
                 const formattedDate = format(new Date(updatedRow.start_time), 'MMMM d, h:mm a');
                 interaction.reply({
-                    content: `Match updated successfully for **Week #${updatedRow.week || 'None'}**: **${updatedRow.team_a}** vs **${updatedRow.team_b}** on **${formattedDate}** (${updatedRow.stage}).`,
+                    content: `Match updated successfully for **Week #${updatedRow.week || 'Playoffs'}**: **${updatedRow.team_a}** vs **${updatedRow.team_b}** on **${formattedDate}** (${updatedRow.stage}).`,
                     ephemeral: true,
                 });
             });
@@ -245,7 +245,7 @@ async execute(interaction, db) {
             }
             case 'week': {
                 const weeks = [
-                    { name: 'None', value: 'None' },
+                    { name: 'Playoffs', value: 'Playoffs' },
                     { name: '#1', value: '#1' },
                     { name: '#2', value: '#2' },
                     { name: '#3', value: '#3' },
